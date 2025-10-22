@@ -1,0 +1,22 @@
+{
+    "name": "walkwizus/magento2-hyva-meilisearch",
+    "description": "Meilisearch integration for Magento 2",
+    "type": "magento2-module",
+    "license": "OSL-3.0",
+    "authors": [
+        {
+            "name": "Jimmy Carricart",
+            "email": "jimmy@walkwizus.fr"
+        }
+    ],
+    "autoload": {
+        "files": [
+            "src/registration.php"
+        ],
+        "psr-4": {
+            "Hyva\\MeilisearchFrontend\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
