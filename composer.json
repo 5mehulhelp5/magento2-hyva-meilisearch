@@ -14,7 +14,7 @@
             "src/registration.php"
         ],
         "psr-4": {
-            "Hyva\\MeilisearchFrontend\\": "src/"
+            "Hyva\\WalkwizusMeilisearch\\": "src/"
         }
     },
     "minimum-stability": "dev",

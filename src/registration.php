@@ -6,7 +6,7 @@ use Magento\Framework\Component\ComponentRegistrar;
 
 ComponentRegistrar::register(
     ComponentRegistrar::MODULE,
-    'Hyva_WalkwizusMeilisearchFrontend',
+    'Hyva_WalkwizusMeilisearch',
     __DIR__,
 );
 

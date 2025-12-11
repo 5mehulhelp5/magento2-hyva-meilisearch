@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\ThemeViewModel\LucideIcons;
+
+/** @var ViewModelRegistry|null $viewModels */
+$viewModels = $block->getData('viewModels') ?? null;
+/** @var LucideIcons|null $lucideIcons */
+$lucideIcons = $viewModels ? $viewModels->require(LucideIcons::class) : null;
+
+$pagerIconSize = 20;
+$pagerItemClass = "btn btn-secondary border-1 border-gray-300 rounded-3xl p-2 text-sm min-w-9.5";
+
+$previousLabel = __('Previous Page');
+$nextLabel = __('Next Page');
+?>
+<nav
+    class="pages flex justify-center order-2 col-span-4 gap-1"
+    aria-label="<?= $escaper->escapeHtmlAttr(__('pagination')) ?>"
+>
+    <button
+        type="button"
+        class="pages-item-previous <?= $escaper->escapeHtmlAttr($pagerItemClass) ?>"
+        :class="!canGoPrev ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-700'"
+        :aria-disabled="(!canGoPrev).toString()"
+        aria-label="<?= $escaper->escapeHtmlAttr($previousLabel) ?>"
+        @click="prevPage()"
+    >
+        <?php if ($lucideIcons): ?>
+            <?= /* @noEscape */ $lucideIcons->arrowLeftHtml('', $pagerIconSize, $pagerIconSize, ['aria-hidden' => 'true']); ?>
+        <?php else: ?>
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        <?php endif; ?>
+    </button>
+    <ol class="inline-flex gap-1 items pages-items">
+        <template x-for="page in visiblePages" :key="page">
+            <li class="item">
+                <button
+                    type="button"
+                    class="page <?= $escaper->escapeHtmlAttr($pagerItemClass) ?>"
+                    :class="page === currentPage ? 'bg-gray-100 border-primary z-10' : ''"
+                    :aria-current="page === currentPage ? 'page' : null"
+                    :aria-label="page === currentPage
+                        ? '<?= $escaper->escapeJs(__("You\'re currently reading page")) ?> ' + page
+                        : '<?= $escaper->escapeJs(__("Page")) ?> ' + page"
+                    @click="goToPage(page)"
+                    x-text="page"
+                ></button>
+            </li>
+        </template>
+    </ol>
+    <button
+        type="button"
+        class="pages-item-next <?= $escaper->escapeHtmlAttr($pagerItemClass) ?>"
+        :class="!canGoNext ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-700'"
+        :aria-disabled="(!canGoNext).toString()"
+        aria-label="<?= $escaper->escapeHtmlAttr($nextLabel) ?>"
+        @click="nextPage()"
+    >
+        <?php if ($lucideIcons): ?>
+            <?= /* @noEscape */ $lucideIcons->arrowRightHtml('', $pagerIconSize, $pagerIconSize, ['aria-hidden' => 'true']); ?>
+        <?php else: ?>
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        <?php endif; ?>
+    </button>
+</nav>

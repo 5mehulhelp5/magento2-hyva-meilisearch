@@ -1,0 +1,47 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Magento\Framework\Escaper $escaper */
+/** @var \Hyva\WalkwizusMeilisearch\ViewModel\InitJs $viewModel */
+$viewModel = $block->getViewModel();
+$scripts = $viewModel->getScripts();
+?>
+<script>
+    <?php foreach ($scripts as $script): ?>
+
+    window.<?= $escaper->escapeJs($script['name']) ?> = (function() {
+        let promise;
+
+        return function() {
+            if (promise) {
+                return promise;
+            }
+
+            if (window.<?= $escaper->escapeJs($script['global']) ?>) {
+                return Promise.resolve(window.<?= $escaper->escapeJs($script['global']) ?>);
+            }
+
+            promise = new Promise(function(resolve, reject) {
+                const s = document.createElement('script');
+                s.src = '<?= $escaper->escapeJs($block->getViewFileUrl($script['src'])) ?>';
+                s.async = true;
+                s.onload = function() {
+                    resolve(window.<?= $escaper->escapeJs($script['global']) ?>);
+                };
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+
+            return promise;
+        };
+    })();
+    <?php endforeach; ?>
+
+    window.addEventListener('init-external-scripts', function () {
+        <?php foreach ($scripts as $script): ?>
+        window.<?= $escaper->escapeJs($script['name']) ?>()
+            .catch(function (e) {
+                console.error('[Meilisearch] load failed: <?= $escaper->escapeJs($script['name']) ?>', e);
+            });
+        <?php endforeach; ?>
+    }, { once: true, passive: true });
+</script>

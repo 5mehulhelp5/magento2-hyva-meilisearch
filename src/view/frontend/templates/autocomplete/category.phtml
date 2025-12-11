@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\View\Element\Template;
+use Magento\Framework\Escaper;
+
+/**
+ * @var Template $block
+ * @var Escaper $escaper
+ */
+$alias = (string)$block->getData('alias');
+?>
+<div class="flex flex-col gap-2">
+    <div class="flex justify-end px-2">
+        <span
+            class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-700"
+            x-text="
+                (store.autocomplete.results['<?= $escaper->escapeJs($alias) ?>']
+                    ? store.autocomplete.results['<?= $escaper->escapeJs($alias) ?>'].length
+                    : 0
+                ) + ' results'
+            "
+        ></span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2">
+        <template
+            x-for="hit in store.autocomplete.results['<?= $escaper->escapeJs($alias) ?>']"
+            :key="hit.entity_id"
+        >
+            <a
+                data-autocomplete-item
+                class="flex flex-col gap-1 p-2 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none cursor-pointer"
+                :href="'/' + (hit.url_key || '')"
+                @click="store.closeAutocomplete()"
+                @keydown.enter.prevent="$event.target.click()"
+            >
+                <div class="text-sm font-medium text-gray-900 line-clamp-1" x-text="hit.name"></div>
+                <div class="text-xs text-gray-500 line-clamp-1" x-text="hit.path"></div>
+
+                <div class="mt-1">
+                    <span
+                        class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700"
+                        x-text="(hit.product_count || 0) + ' products'"
+                    ></span>
+                </div>
+            </a>
+        </template>
+    </div>
+</div>

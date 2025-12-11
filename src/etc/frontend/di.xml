@@ -1,12 +1,66 @@
 <?xml version="1.0"?>
+
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
     <type name="Hyva\CompatModuleFallback\Model\CompatModuleRegistry">
         <arguments>
             <argument name="compatModules" xsi:type="array">
                 <item name="walkwizus_meilisearchfrontend_map" xsi:type="array">
                     <item name="original_module" xsi:type="string">Walkwizus_MeilisearchFrontend</item>
-                    <item name="compat_module" xsi:type="string">Hyva_WalkwizusMeilisearchFrontend</item>
+                    <item name="compat_module" xsi:type="string">Hyva_WalkwizusMeilisearch</item>
                 </item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hyva\WalkwizusMeilisearch\ViewModel\Autocomplete">
+        <arguments>
+            <argument name="renderers" xsi:type="array">
+                <item name="catalog_product" xsi:type="array">
+                    <item name="name" xsi:type="string">Products</item>
+                    <item name="template" xsi:type="string">Hyva_WalkwizusMeilisearch::autocomplete/product.phtml</item>
+                </item>
+                <item name="catalog_category" xsi:type="array">
+                    <item name="name" xsi:type="string">Categories</item>
+                    <item name="template" xsi:type="string">Hyva_WalkwizusMeilisearch::autocomplete/category.phtml</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hyva\WalkwizusMeilisearch\ViewModel\InitJs">
+        <arguments>
+            <argument name="scripts" xsi:type="array">
+                <item name="meilisearch-sdk" xsi:type="array">
+                    <item name="name" xsi:type="string">meilisearchLoader</item>
+                    <item name="global" xsi:type="string">Meilisearch</item>
+                    <item name="src" xsi:type="string">Walkwizus_MeilisearchFrontend::js/lib/meilisearch/umd/index.min.js</item>
+                </item>
+                <item name="meilisearch-disjunctive-search" xsi:type="array">
+                    <item name="name" xsi:type="string">meilisearchDisjunctiveSearchLoader</item>
+                    <item name="global" xsi:type="string">MeilisearchDisjunctiveSearch</item>
+                    <item name="src" xsi:type="string">Walkwizus_MeilisearchFrontend::js/service/disjunctive-search.js</item>
+                </item>
+                <item name="meilisearch-facets" xsi:type="array">
+                    <item name="name" xsi:type="string">meilisearchFacetsLoader</item>
+                    <item name="global" xsi:type="string">MeilisearchFacets</item>
+                    <item name="src" xsi:type="string">Walkwizus_MeilisearchFrontend::js/service/facets.js</item>
+                </item>
+                <item name="meilisearch-query-builder" xsi:type="array">
+                    <item name="name" xsi:type="string">meilisearchQueryBuilderLoader</item>
+                    <item name="global" xsi:type="string">MeilisearchQueryBuilder</item>
+                    <item name="src" xsi:type="string">Walkwizus_MeilisearchFrontend::js/service/query-builder.js</item>
+                </item>
+                <item name="meilisearch-url-manager" xsi:type="array">
+                    <item name="name" xsi:type="string">meilisearchUrlManagerLoader</item>
+                    <item name="global" xsi:type="string">MeilisearchUrlManager</item>
+                    <item name="src" xsi:type="string">Walkwizus_MeilisearchFrontend::js/service/url-manager.js</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Walkwizus\MeilisearchFrontend\Observer\AddMeilisearchHandle">
+        <arguments>
+            <argument name="handles" xsi:type="array">
+                <item name="hyva_meilisearch_common" xsi:type="object">Hyva\WalkwizusMeilisearch\Model\LayoutHandle\AddHyvaMeilisearchCommonHandle</item>
+                <item name="hyva_meilisearch_result" xsi:type="object">Hyva\WalkwizusMeilisearch\Model\LayoutHandle\AddHyvaMeilisearchResultHandle</item>
             </argument>
         </arguments>
     </type>

@@ -1,0 +1,430 @@
+<script>
+    (() => {
+        let meilisearchClient = null;
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('meilisearch', {
+                meilisearchConfig: {},
+                meilisearchDisjunctiveSearch: null,
+                meilisearchFacets: null,
+                meilisearchQueryBuilder: null,
+                meilisearchUrlManager: null,
+                meilisearchFragments: [],
+                initialState: null,
+                isHydrated: false,
+
+                state: {
+                    isLoading: false,
+                    results: null,
+                    hits: [],
+                    totalHits: 0,
+                    totalPages: 0,
+                    page: 1,
+                    hitsPerPage: 12,
+                    searchQuery: '',
+                    selectedFacets: {},
+                    facetDistribution: {},
+                    facetStats: {},
+                    sortBy: null,
+                    isDescending: false,
+                },
+
+                viewModeState: {
+                    mode: null
+                },
+
+                limiterState: {
+                    perPage: 12
+                },
+
+                autocomplete: {
+                    term: '',
+                    results: [],
+                    open: false
+                },
+
+                async init() {
+                    this.meilisearchConfig = window.meilisearchFrontendConfig;
+                    this.meilisearchFragments = this.meilisearchConfig.fragments;
+                    this.initialState = window.meilisearchInitialState;
+
+                    const [
+                        Meilisearch,
+                        MeilisearchDisjunctiveSearch,
+                        MeilisearchFacets,
+                        MeilisearchQueryBuilder,
+                        MeilisearchUrlManager
+                    ] = await Promise.all([
+                        window.meilisearchLoader(),
+                        window.meilisearchDisjunctiveSearchLoader(),
+                        window.meilisearchFacetsLoader(),
+                        window.meilisearchQueryBuilderLoader(),
+                        window.meilisearchUrlManagerLoader()
+                    ]);
+
+                    meilisearchClient = new Meilisearch({
+                        host: this.meilisearchConfig.host,
+                        apiKey: this.meilisearchConfig.apiKey || ''
+                    });
+
+                    this.meilisearchDisjunctiveSearch = MeilisearchDisjunctiveSearch;
+                    this.meilisearchFacets = MeilisearchFacets;
+                    this.meilisearchQueryBuilder = MeilisearchQueryBuilder;
+                    this.meilisearchUrlManager = MeilisearchUrlManager;
+
+                    const urlState = this.meilisearchUrlManager.getStateFromUrl();
+                    const defaultMode = (this.meilisearchConfig.defaultViewMode || 'grid').toLowerCase();
+
+                    this.state.selectedFacets = urlState.facets || {};
+                    this.state.page = urlState.page || 1;
+                    this.state.searchQuery = urlState.q || '';
+                    this.viewModeState.mode = (urlState.product_list_mode || defaultMode).toLowerCase();
+
+                    const sortFieldFromUrl = urlState.product_list_order || this.meilisearchConfig.defaultSortBy || null;
+                    const sortDirFromUrl = (urlState.product_list_dir || '').toLowerCase();
+
+                    this.state.sortBy = sortFieldFromUrl;
+                    this.state.isDescending = sortDirFromUrl
+                        ? sortDirFromUrl === 'desc'
+                        : (this.meilisearchConfig.defaultSortDirection || 'asc').toLowerCase() === 'desc';
+
+                    const baseLimit = this.viewModeState.mode === 'list'
+                        ? (this.meilisearchConfig.listPerPage || 10)
+                        : (this.meilisearchConfig.gridPerPage || 12);
+
+                    this.limiterState.perPage = urlState.product_list_limit || baseLimit;
+
+                    if (this.initialState) {
+                        this.updateResults(this.initialState);
+                    }
+
+                    this.isHydrated = true;
+                },
+
+                async performSearch() {
+                    this.state.isLoading = true;
+
+                    const searchQuery = this.state.searchQuery;
+                    const sortField = this.state.sortBy ?? this.meilisearchConfig.defaultSortBy;
+                    const sortDirection = this.state.isDescending ? 'desc' : 'asc';
+                    const sortParams = sortField ? [`${sortField}:${sortDirection}`] : undefined;
+
+                    const selected = this.state.selectedFacets;
+                    const activeFacetCodes = Object.keys(selected);
+                    const currentPage = this.state.page;
+                    const facetList = this.meilisearchConfig.facets.facetList;
+                    const hitsPerPage = this.limiterState.perPage;
+
+                    const index = meilisearchClient.index(this.meilisearchConfig.indexName);
+
+                    if (!activeFacetCodes.length) {
+                        const filters = this.buildFilter(selected);
+
+                        const res = await index.search(searchQuery, {
+                            page: currentPage,
+                            hitsPerPage,
+                            facets: facetList,
+                            filter: filters.length ? filters : undefined,
+                            sort: sortParams
+                        });
+
+                        this.updateResults(res);
+                        this.state.isLoading = false;
+                        return;
+                    }
+
+                    const queries = this.meilisearchDisjunctiveSearch.buildDisjunctiveQueries({
+                        indexName: this.meilisearchConfig.indexName,
+                        query: searchQuery,
+                        selectedFacets: selected,
+                        facetList: facetList,
+                        buildFilters: sel => this.buildFilter(sel),
+                        page: currentPage,
+                        hitsPerPage: hitsPerPage,
+                        sort: sortParams
+                    });
+
+                    const res = await meilisearchClient.multiSearch({ queries });
+
+                    const merged = this.meilisearchDisjunctiveSearch.mergeDisjunctiveResults(
+                        res.results,
+                        activeFacetCodes
+                    );
+
+                    const combinedResults = Object.assign({}, merged.mainResults, {
+                        facetDistribution: merged.facetDistribution
+                    });
+
+                    this.updateResults(combinedResults);
+                    this.state.isLoading = false;
+                },
+
+                buildFilter(selected) {
+                    return this.meilisearchQueryBuilder.buildFilters(
+                        selected,
+                        this.meilisearchConfig.currentCategoryId,
+                        this.meilisearchConfig.categoryRule || null
+                    );
+                },
+
+                updateResults(results) {
+                    this.state.results = results;
+                    this.state.hits = results.hits || [];
+                    this.state.totalHits = results.totalHits ?? 0;
+                    this.state.totalPages = results.totalPages ?? 0;
+                    this.state.page = results.page ?? 1;
+                    this.state.hitsPerPage = results.hitsPerPage ?? this.limiterState.perPage;
+                    this.state.facetDistribution = results.facetDistribution || {};
+                    this.state.facetStats = results.facetStats || {};
+
+                    if (results.hitsPerPage) {
+                        this.limiterState.perPage = results.hitsPerPage;
+                    }
+
+                    document.dispatchEvent(new CustomEvent('meilisearch:results-updated'));
+                },
+
+                setViewMode(mode) {
+                    const normalized = (mode || '').toLowerCase();
+                    if (!normalized || this.viewModeState.mode === normalized) return;
+
+                    this.viewModeState.mode = normalized;
+
+                    const baseLimit = normalized === 'list'
+                        ? (this.meilisearchConfig.listPerPage || 10)
+                        : (this.meilisearchConfig.gridPerPage || 12);
+
+                    this.limiterState.perPage = baseLimit;
+                    this.state.page = 1;
+
+                    this.syncUrl();
+                    this.performSearch();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+
+                syncUrl() {
+                    const urlState = {
+                        facets: this.state.selectedFacets,
+                        page: this.state.page,
+                        q: this.state.searchQuery || '',
+                        product_list_mode: this.viewModeState.mode || this.meilisearchConfig.defaultViewMode,
+                        product_list_limit: this.limiterState.perPage,
+                        product_list_order: this.state.sortBy || this.meilisearchConfig.defaultSortBy || null,
+                        product_list_dir: this.state.isDescending ? 'desc' : 'asc'
+                    };
+
+                    this.meilisearchUrlManager.updateUrl(urlState);
+                },
+
+                setSortBy(orderCode) {
+                    const value = orderCode || null;
+
+                    if (value === this.state.sortBy) {
+                        return;
+                    }
+
+                    this.state.sortBy = value;
+                    this.state.page = 1;
+
+                    this.syncUrl();
+                    this.performSearch();
+                },
+
+                toggleSortDirection() {
+                    if (!this.state.sortBy) {
+                        return;
+                    }
+
+                    this.state.isDescending = !this.state.isDescending;
+                    this.state.page = 1;
+
+                    this.syncUrl();
+                    this.performSearch();
+                },
+
+                getAvailableFacets() {
+                    if (!this.isHydrated) {
+                        return [];
+                    }
+
+                    return this.meilisearchFacets.getAvailableFacets(this.state.results);
+                },
+
+                toggleFacet(code, value) {
+                    const selected = { ...this.state.selectedFacets };
+                    const current = selected[code] ? [...selected[code]] : [];
+                    const idx = current.indexOf(value);
+
+                    if (idx === -1) {
+                        current.push(value);
+                    } else {
+                        current.splice(idx, 1);
+                    }
+
+                    if (current.length) {
+                        selected[code] = current;
+                    } else {
+                        delete selected[code];
+                    }
+
+                    this.state.selectedFacets = selected;
+                    this.state.page = 1;
+
+                    this.syncUrl();
+                    this.performSearch();
+                },
+
+                limiterOptions() {
+                    const mode = (this.viewModeState.mode || (this.meilisearchConfig.defaultViewMode || 'grid')).toLowerCase();
+
+                    const optionsFromConfig = mode === 'list'
+                        ? (this.meilisearchConfig.listPerPageOptions || [])
+                        : (this.meilisearchConfig.gridPerPageOptions || []);
+
+                    if (optionsFromConfig.length) {
+                        return optionsFromConfig;
+                    }
+
+                    const base = mode === 'list'
+                        ? (this.meilisearchConfig.listPerPage || 10)
+                        : (this.meilisearchConfig.gridPerPage || 12);
+
+                    return [base, base * 2, base * 3];
+                },
+
+                changePerPage(limit) {
+                    const perPage = Number(limit) || this.limiterState.perPage;
+
+                    if (perPage === this.limiterState.perPage) {
+                        return;
+                    }
+
+                    this.limiterState.perPage = perPage;
+                    this.state.page = 1;
+
+                    this.syncUrl();
+                    this.performSearch();
+                },
+
+                goToPage(page) {
+                    const target = Number(page);
+                    const total = this.state.totalPages || 1;
+
+                    if (!Number.isFinite(target) || target < 1 || target > total) {
+                        return;
+                    }
+
+                    this.state.page = target;
+
+                    this.syncUrl();
+                    this.performSearch();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+
+                prevPage() {
+                    const current = this.state.page || 1;
+                    this.goToPage(current - 1);
+                },
+
+                nextPage() {
+                    const current = this.state.page || 1;
+                    this.goToPage(current + 1);
+                },
+
+                hasAutocompleteResults() {
+                    const resultData = this.autocomplete.results || {};
+                    return Object.values(resultData).some(
+                        list => Array.isArray(list) && list.length > 0
+                    );
+                },
+
+                openAutocomplete() {
+                    this.autocomplete.open = true;
+                },
+
+                closeAutocomplete() {
+                    this.autocomplete.open = false;
+                    this.autocomplete.results = {};
+                },
+
+                async performAutocomplete(term) {
+                    this.autocomplete.term = term;
+
+                    const indexMap  = this.meilisearchConfig.autocompleteIndex || {};
+                    const minLength = this.meilisearchConfig.minSearchLength || 1;
+                    const limit = this.meilisearchConfig.autocompleteLimit || 5;
+
+                    if (!term || term.length < minLength || !Object.keys(indexMap).length) {
+                        this.autocomplete.results = {};
+                        return;
+                    }
+
+                    const queries = Object.entries(indexMap).map(([_, indexUid]) => ({
+                        indexUid,
+                        q: term,
+                        limit: limit
+                    }));
+
+                    try {
+                        const res = await meilisearchClient.multiSearch({ queries });
+                        const mappedResults = {};
+
+                        res.results.forEach(result => {
+                            const alias = Object.keys(indexMap).find(
+                                key => indexMap[key] === result.indexUid
+                            );
+                            if (alias) {
+                                mappedResults[alias] = result.hits || [];
+                            }
+                        });
+
+                        this.autocomplete.results = mappedResults;
+                        this.autocomplete.open = true;
+                    } catch (e) {
+                        console.error('[Meilisearch autocomplete] search error', e);
+                        this.autocomplete.results = {};
+                    }
+                },
+
+                highlightAutocomplete(text) {
+                    if (!text) return '';
+                    const query = (this.autocomplete.term || '').toLowerCase();
+                    if (!query) return this.escapeHtml(text);
+
+                    const escaped = this.escapeHtml(text);
+                    const pattern = new RegExp('(' + this.escapeRegex(query) + ')', 'gi');
+                    return escaped.replace(pattern, '<strong>$1</strong>');
+                },
+
+                escapeHtml(str) {
+                    const div = document.createElement('div');
+                    div.innerText = str;
+                    return div.innerHTML;
+                },
+
+                escapeRegex(str) {
+                    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                },
+
+                getSearchUrl() {
+                    return BASE_URL + 'catalogsearch/result/';
+                },
+
+                getProductImage(image) {
+                    return this.meilisearchConfig.mediaBaseUrl + image;
+                },
+
+                getProductUrl(urlKey) {
+                    const suffix  = this.meilisearchConfig.productUrlSuffix;
+                    const baseUrl = this.meilisearchConfig.baseUrl;
+
+                    if (typeof suffix === 'string' && suffix.trim() !== '') {
+                        return baseUrl + urlKey + suffix;
+                    }
+
+                    return baseUrl + urlKey;
+                }
+            });
+        });
+    })();
+</script>

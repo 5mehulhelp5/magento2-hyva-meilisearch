@@ -1,0 +1,394 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\View\Element\Template;
+use Magento\Framework\Escaper;
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+use Magento\Swatches\ViewModel\Product\Renderer\Configurable as ConfigurableViewModel;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+/** @var HeroiconsOutline $heroicons */
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+/** @var ConfigurableViewModel $configurableViewModel */
+$configurableViewModel = $viewModels->require(ConfigurableViewModel::class);
+?>
+
+<div
+    x-data="meilisearchLayeredNavigation()"
+    x-init="checkIsMobileResolution()"
+    @resize.window.debounce="checkIsMobileResolution()"
+    @visibilitychange.window.debounce="checkIsMobileResolution()"
+    class="block border border-container bg-container-darker p-4 md:border-0 md:bg-transparent md:py-0 md:px-0 my-6"
+    role="region"
+    aria-label="<?= $escaper->escapeHtmlAttr(__('Product filters')) ?>"
+>
+    <h2 id="filters-heading" class="block-title">
+        <button
+            type="button"
+            @click="blockOpen = !blockOpen"
+            class="block-title flex items-center justify-between w-full text-start"
+            aria-controls="filters-content"
+            :aria-expanded="blockOpen"
+            :aria-disabled="!isMobile"
+            :disabled="!isMobile ? '' : null"
+        >
+            <span class="text-md md:text-3xl font-medium uppercase">
+                <?= $escaper->escapeHtml(__('Shop By')) ?>
+            </span>
+            <span
+                class="py-1 px-1 bg-container-lighter rounded border border-container-darker md:hidden"
+                x-ref="LayeredNavigationMobileToggleIcon"
+            >
+                <?= $heroicons->chevronDownHtml(
+                    'transition-transform transform duration-300 ease-in-out',
+                    24,
+                    24,
+                    [
+                        ":class" => "{ 'rotate-180': blockOpen }",
+                        "aria-hidden" => "true",
+                        "focusable" => "false"
+                    ]
+                ); ?>
+            </span>
+        </button>
+    </h2>
+    <div
+        id="filters-content"
+        class="block-content filter-content hidden md:block pt-4"
+        :class="{ 'hidden': !blockOpen }"
+    >
+        <template x-if="hasActiveFilters">
+            <div
+                x-data="{ open: true }"
+                class="filter-current bg-white border border-gray-300 p-4 md:px-8 md:mt-4 mb-4"
+            >
+                <h3 id="active-filtering-heading">
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="w-full filter-options-title flex justify-between items-center text-start cursor-pointer"
+                        aria-controls="active-filtering-content"
+                        :aria-expanded="open"
+                        x-init="$nextTick(() => $el.focus())"
+                    >
+                        <strong><?= $escaper->escapeHtml(__('Active filtering')) ?></strong>
+                        <span class="py-1 px-1 rounded border border-gray-300">
+                            <?= $heroicons->chevronDownHtml(
+                                'transition-transform transform duration-300 ease-in-out',
+                                24,
+                                24,
+                                [
+                                    ":class" => "{ 'rotate-180': open }",
+                                    "aria-hidden" => "true",
+                                    "focusable" => "false"
+                                ]
+                            ); ?>
+                        </span>
+                    </button>
+                </h3>
+                <div
+                    id="active-filtering-content"
+                    class="items pt-1 pb-3 space-y-1"
+                    x-show="open"
+                    aria-labelledby="active-filtering-heading"
+                    role="region"
+                >
+                    <template
+                        x-for="activeFilter in activeFilters"
+                        :key="activeFilter.facetCode + '-' + activeFilter.value"
+                    >
+                        <div class="item flex justify-between items-center">
+                            <span>
+                                <span
+                                    class="filter-label block text-sm font-medium"
+                                    x-text="getFacetLabel(activeFilter.facetCode)"
+                                ></span>
+                                <span
+                                    class="filter-value text-sm block"
+                                    x-text="getFacetOptionLabel(activeFilter.facetCode, activeFilter.value)"
+                                ></span>
+                            </span>
+                            <button
+                                type="button"
+                                class="py-2 px-2 text-center block action remove text-fg-secondary hover:text-fg"
+                                @click="$store.meilisearch.toggleFacet(activeFilter.facetCode, activeFilter.value)"
+                                :title="removeFilterTitle(activeFilter)"
+                                :aria-label="removeFilterTitle(activeFilter)"
+                            >
+                                <?= $heroicons->trashHtml('', 20, 20, ["aria-hidden" => "true"]); ?>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <div
+                    class="block-actions filter-actions"
+                    x-show="open"
+                >
+                    <button
+                        type="button"
+                        class="text-sm text-fg-secondary hover:text-fg"
+                        @click="$store.meilisearch.clearAllFacets && $store.meilisearch.clearAllFacets()"
+                    >
+                        <?= $escaper->escapeHtml(__('Clear All')) ?>
+                    </button>
+                </div>
+            </div>
+        </template>
+        <template x-for="facet in $store.meilisearch.getAvailableFacets()" :key="facet.code">
+            <div
+                x-data="{
+                    open: false,
+                    id: $id('filter-option')
+                }"
+                x-defer="intersect"
+                class="filter-option card my-4"
+            >
+                <h3 :id="`${id}-title`">
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="filter-options-title flex justify-between items-center cursor-pointer text-start hover:text-secondary-darker border-container w-full"
+                        :class="{ 'border-b pb-4': open }"
+                        :aria-controls="`${id}-content`"
+                        :aria-expanded="open"
+                    >
+                        <span class="title text-md md:text-lg font-semibold" x-text="facet.label"></span>
+                        <span class="py-1 px-1 rounded border border-container">
+                            <?= $heroicons->chevronDownHtml(
+                                'transition-transform transform duration-300 ease-in-out',
+                                24,
+                                24,
+                                [
+                                    ":class" => "{ 'rotate-180': open }",
+                                    "aria-hidden" => "true",
+                                    "focusable" => "false"
+                                ]
+                            ); ?>
+                        </span>
+                    </button>
+                </h3>
+                <template x-if="open">
+                    <div
+                        :id="`${id}-content`"
+                        class="filter-options-content pt-3 space-y-1"
+                    >
+                        <template x-if="facet.isSwatch">
+                            <div
+                                class="swatch-attribute swatch-layered"
+                                :class="facet.code"
+                                x-data="initMeilisearchLayeredSwatch()"
+                            >
+                                <div class="swatch-attribute-options clearfix">
+                                    <template
+                                        x-for="option in facet.options"
+                                        :key="facet.code + '-' + option.value"
+                                    >
+                                        <a
+                                            href="#"
+                                            rel="nofollow"
+                                            @click.prevent="$store.meilisearch.toggleFacet(facet.code, option.value)"
+                                            :aria-label="`<?= $escaper->escapeJs(__('Filter')) ?> ${facet.label} ${option.label}`"
+                                            class="swatch-option-link-layered swatch-option cursor-pointer bg-white shadow-sm relative select-none border-gray-300"
+                                            :class="{
+                                                'w-6 h-6': getSwatchType(option.swatchType) !== 'text',
+                                                'border-gray-100 ring ring-primary/50':
+                                                    $store.meilisearch.state.selectedFacets[facet.code]
+                                                    && $store.meilisearch.state.selectedFacets[facet.code].includes(option.value),
+                                                'border-gray-300':
+                                                    !$store.meilisearch.state.selectedFacets[facet.code]
+                                                    || !$store.meilisearch.state.selectedFacets[facet.code].includes(option.value),
+                                                'opacity-50 cursor-not-allowed': option.count === 0
+                                            }"
+                                            :style="getSwatchBackgroundStyle(option.swatchType, option.swatchValue, '')"
+                                            <?php if ($configurableViewModel->getShowSwatchTooltip()): ?>
+                                                @mouseenter.self="activeTooltipItem = {
+                                                    attribute: facet.code,
+                                                    type: '' + option.swatchType,
+                                                    id: '' + option.value,
+                                                    label: '' + option.label,
+                                                    thumb: '',
+                                                    value: '' + option.swatchValue
+                                                }; tooltipPositionElement = $event.target;"
+                                                @mouseleave.self="activeTooltipItem = false"
+                                            <?php endif; ?>
+                                        >
+                                            <template x-if="getSwatchType(option.swatchType) === 'text'">
+                                                <span x-text="option.swatchValue || option.label"></span>
+                                            </template>
+                                        </a>
+                                    </template>
+                                </div>
+                                <?php if ($configurableViewModel->getShowSwatchTooltip()): ?>
+                                    <?= /* @noEscape */ $block->getBlockHtml('product.swatch.tooltip') ?>
+                                <?php endif; ?>
+                            </div>
+                        </template>
+                        <template x-if="!facet.isSwatch">
+                            <div class="items">
+                                <template
+                                    x-for="option in facet.options"
+                                    :key="facet.code + '-' + option.value"
+                                >
+                                    <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                        <input
+                                            type="checkbox"
+                                            class="rounded border-container"
+                                            :checked="$store.meilisearch.state.selectedFacets[facet.code] && $store.meilisearch.state.selectedFacets[facet.code].includes(option.value)"
+                                            @change="$store.meilisearch.toggleFacet(facet.code, option.value)"
+                                        >
+                                        <span class="flex-1" x-text="option.label"></span>
+                                        <span class="text-xs text-gray-400" x-text="option.count"></span>
+                                    </label>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</div>
+
+<script>
+    function initMeilisearchLayeredSwatch() {
+        return {
+            activeTooltipItem: false,
+            tooltipPositionElement: false,
+
+            getSwatchType(typeNumber) {
+                switch ("" + typeNumber) {
+                    case '1':
+                        return "color";
+                    case '2':
+                        return "image";
+                    case '0':
+                    default:
+                        return "text";
+                }
+            },
+
+            getSwatchBackgroundStyle(type, value, image) {
+                if (this.getSwatchType(type) === "color") {
+                    return 'background-color:' + value;
+                } else if (this.getSwatchType(type) === "image") {
+                    return "background: #ffffff url('" + image + "') no-repeat center";
+                } else {
+                    return '';
+                }
+            },
+
+            isTooltipVisible() {
+                return this.activeTooltipItem;
+            },
+
+            isFirstItemCol() {
+                const left = this.tooltipPositionElement.offsetLeft;
+                const leftParent = this.tooltipPositionElement.parentNode.offsetLeft;
+                const width = this.tooltipPositionElement.offsetWidth;
+                return left - leftParent < width;
+            },
+
+            getTooltipImageStyle() {
+                const type = this.activeTooltipItem.type;
+
+                if (this.getSwatchType(type) === "color") {
+                    return 'background-color:' + this.activeTooltipItem.value + '; width: 110px; height: 90px;';
+                } else if (this.getSwatchType(type) === "image") {
+                    return "background: #ffffff url('" + this.activeTooltipItem.thumb +
+                        "') center center no-repeat; width: 110px; height: 90px;";
+                } else {
+                    return 'display:none';
+                }
+            },
+
+            getTooltipPosition() {
+                return this.tooltipPositionElement
+                    ? (
+                        `top: ${this.tooltipPositionElement.offsetTop}px;` +
+                        `left: ${this.tooltipPositionElement.offsetLeft}px;`
+                    )
+                    : '';
+            },
+
+            getTooltipLabel() {
+                return this.activeTooltipItem.label || '';
+            },
+
+            isVisualSwatch() {
+                return this.getSwatchType(this.activeTooltipItem.type) !== 'text';
+            }
+        }
+    }
+
+    function meilisearchLayeredNavigation() {
+        return {
+            isMobile: false,
+            blockOpen: true,
+
+            get hasActiveFilters() {
+                const selected = this.$store.meilisearch.state.selectedFacets || {};
+                return Object.keys(selected).some(code => (selected[code] || []).length > 0);
+            },
+
+            get activeFilters() {
+                const selected = this.$store.meilisearch.state.selectedFacets || {};
+                const result = [];
+
+                Object.entries(selected).forEach(([facetCode, values]) => {
+                    (values || []).forEach((value) => {
+                        result.push({ facetCode, value });
+                    });
+                });
+
+                return result;
+            },
+
+            getFacetLabel(code) {
+                const facets = this.$store.meilisearch.getAvailableFacets
+                    ? this.$store.meilisearch.getAvailableFacets()
+                    : [];
+                const facet = facets.find((f) => f.code === code);
+                return facet ? facet.label : code;
+            },
+
+            getFacetOptionLabel(code, value) {
+                const facets = this.$store.meilisearch.getAvailableFacets
+                    ? this.$store.meilisearch.getAvailableFacets()
+                    : [];
+                const facet = facets.find((f) => f.code === code);
+                if (!facet) {
+                    return value;
+                }
+
+                const option = facet.options.find(
+                    (o) => String(o.value) === String(value)
+                );
+
+                return option ? option.label : value;
+            },
+
+            removeFilterTitle(activeFilter) {
+                const facetLabel = this.getFacetLabel(activeFilter.facetCode);
+                const optionLabel = this.getFacetOptionLabel(activeFilter.facetCode, activeFilter.value);
+
+                return '<?= $escaper->escapeJs(__('Remove active %1 filter: %2')) ?>'
+                    .replace('%1', facetLabel)
+                    .replace('%2', optionLabel);
+            },
+
+            checkIsMobileResolution() {
+                const mobileElement = this.$refs.LayeredNavigationMobileToggleIcon;
+                this.isMobile = mobileElement
+                    ? getComputedStyle(mobileElement).display !== "none"
+                    : window.matchMedia('(max-width: 767px)').matches;
+
+                this.blockOpen = !this.isMobile;
+            }
+        }
+    }
+</script>

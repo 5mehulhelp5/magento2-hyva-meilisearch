@@ -1,0 +1,165 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\LucideIcons;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+use Hyva\WalkwizusMeilisearch\ViewModel\Autocomplete;
+
+/** @var Escaper $escaper */
+/** @var Template $block */
+/** @var ViewModelRegistry $viewModels */
+
+/** @var LucideIcons $lucideIcons */
+$lucideIcons = $viewModels->require(LucideIcons::class);
+$autocomplete = $viewModels->require(Autocomplete::class);
+$renderers = $autocomplete->getRenderers();
+?>
+
+<div
+    class="container py-2 mx-auto text-black"
+    x-data="initMiniSearch()"
+>
+    <search title="<?= $escaper->escapeHtmlAttr(__('Store')) ?>" role="search">
+        <form
+            id="search_mini_form"
+            class="form minisearch flex"
+            @submit.prevent="search()"
+            x-ref="form"
+        >
+            <label class="sr-only" for="search">
+                <?= $escaper->escapeHtml(__('Search')) ?>
+            </label>
+            <input
+                id="search"
+                x-ref="searchInput"
+                type="search"
+                autocomplete="off"
+                class="form-input w-full rounded-e-none"
+                placeholder="<?= $escaper->escapeHtmlAttr(__('Search products, categories...')) ?>"
+                x-model="store.autocomplete.term"
+                @search-open.window.debounce.10="$el.focus(); $el.select()"
+                @input.debounce.5ms="
+                    if ($event.target.value.length >= minSearchLength) {
+                        store.openAutocomplete();
+                        store.performAutocomplete($event.target.value);
+                        $event.target.setCustomValidity('');
+                    } else {
+                        store.autocomplete.results = {};
+                        store.autocomplete.open = false;
+                    }
+                "
+                @focus="
+                    if ($event.target.value.length >= minSearchLength) {
+                        store.openAutocomplete();
+                        store.performAutocomplete($event.target.value);
+                    }
+                "
+                @keydown.escape.stop.prevent="store.closeAutocomplete()"
+                @keydown.arrow-down.prevent="
+                    focusElement($root.querySelector('[data-autocomplete-item]'))
+                "
+            >
+            <button
+                type="submit"
+                class="btn btn-primary p-2.5 rounded-s-none shrink-0 outline-offset-0"
+                title="<?= $escaper->escapeHtmlAttr(__('Search')) ?>"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('Search')) ?>"
+            >
+                <?= $lucideIcons->searchHtml('', 20, 20, ['aria-hidden' => 'true']); ?>
+            </button>
+        </form>
+        <template
+            x-if="
+                store.autocomplete.open
+                && store.hasAutocompleteResults()
+            "
+        >
+            <div
+                class="absolute z-30 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden"
+                @mousedown.prevent
+            >
+                <div class="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                    <?php foreach ($renderers as $alias => $renderer) : ?>
+                    <template x-if="store.autocomplete.results['<?= $escaper->escapeJs($alias) ?>'].length">
+                        <section class="p-3" aria-label="<?= $escaper->escapeHtmlAttr(__($renderer['name'])) ?>">
+                            <header class="flex items-center justify-between px-2 mb-2">
+                                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    <?= $escaper->escapeHtml(__($renderer['name'])) ?>
+                                </h3>
+                            </header>
+                            <?= /** @noEscape */ $block->fetchView($block->setData('alias', $alias)->getTemplateFile($renderer['template'])) ?>
+                        </section>
+                    </template>
+                    <?php endforeach; ?>
+                </div>
+                <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
+                    <span x-text="store.autocomplete.term
+                        ? '<?= $escaper->escapeJs(__('Results for')) ?> ' + '“' + store.autocomplete.term + '”'
+                        : '<?= $escaper->escapeJs(__('Start typing to search')) ?>'
+                    "></span>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700"
+                        @click="store.closeAutocomplete()"
+                    >
+                        <?= $lucideIcons->xHtml('', 12, 12, ['aria-hidden' => 'true']); ?>
+                        <span><?= $escaper->escapeHtml(__('Close')) ?></span>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </search>
+</div>
+
+<script>
+    'use strict';
+
+    function initMiniSearch() {
+        return {
+            minSearchLength: 1,
+
+            get store() {
+                return Alpine.store('meilisearch');
+            },
+
+            search(term) {
+                const query = term || this.store.autocomplete.term || '';
+                if (!query || query.length < this.minSearchLength) {
+                    const input = this.$refs.searchInput;
+                    if (input) {
+                        input.setCustomValidity(
+                            '<?= $escaper->escapeJs(__('Minimum Search query length is %1', '{{min}}')) ?>'
+                                .replace('{{min}}', this.minSearchLength)
+                        );
+                        input.reportValidity();
+                    }
+                    return;
+                }
+
+                window.location = this.store.getSearchUrl() + '?q=' + encodeURIComponent(query);
+            },
+
+            clear() {
+                this.store.autocomplete.term = '';
+                this.store.autocomplete.results = {};
+                this.store.autocomplete.open = false;
+
+                if (this.$refs.searchInput) {
+                    this.$refs.searchInput.value = '';
+                    this.$refs.searchInput.focus();
+                }
+            },
+
+            focusElement(element) {
+                if (element && element.focus) {
+                    element.focus();
+                    return true;
+                }
+                return false;
+            }
+        }
+    }
+</script>

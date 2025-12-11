@@ -1,0 +1,96 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+?>
+<div
+    class="toolbar toolbar-products grid grid-cols-4 sm:grid-cols-8 md:grid-cols-4
+            lg:grid-cols-8 grid-flow-row gap-2 items-center"
+    x-data="meilisearchToolbar()"
+>
+    <?php if ($block->getIsBottom()): ?>
+        <?= /** @noEscape */ $block->fetchView($block->getTemplateFile('Hyva_WalkwizusMeilisearch::toolbar/amount.phtml')) ?>
+        <?= /** @noEscape */ $block->fetchView($block->getTemplateFile('Hyva_WalkwizusMeilisearch::toolbar/pager.phtml')) ?>
+        <?= /** @noEscape */ $block->fetchView($block->getTemplateFile('Hyva_WalkwizusMeilisearch::toolbar/limiter.phtml')) ?>
+    <?php else: ?>
+        <?= /** @noEscape */ $block->fetchView($block->getTemplateFile('Hyva_WalkwizusMeilisearch::toolbar/viewmode.phtml')) ?>
+        <?= /** @noEscape */ $block->fetchView($block->getTemplateFile('Hyva_WalkwizusMeilisearch::toolbar/sorter.phtml')) ?>
+    <?php endif; ?>
+</div>
+
+<script>
+    function meilisearchToolbar() {
+        return {
+            get currentPage() {
+                return this.$store.meilisearch.state.page || 1;
+            },
+
+            get totalPages() {
+                return this.$store.meilisearch.state.totalPages || 0;
+            },
+
+            get firstItem() {
+                const total = this.$store.meilisearch.state.totalHits || 0;
+                if (!total) return 0;
+
+                const perPage =
+                    this.$store.meilisearch.state.hitsPerPage
+                    || this.$store.meilisearch.state.currentLimit
+                    || 1;
+
+                const page = this.currentPage;
+
+                return ((page - 1) * perPage) + 1;
+            },
+
+            get lastItem() {
+                const total = this.$store.meilisearch.state.totalHits || 0;
+                if (!total) return 0;
+
+                const perPage =
+                    this.$store.meilisearch.state.hitsPerPage
+                    || this.$store.meilisearch.state.currentLimit
+                    || 1;
+
+                const page = this.currentPage;
+
+                return Math.min(page * perPage, total);
+            },
+
+            get visiblePages() {
+                const total = this.totalPages;
+                if (!total) return [];
+
+                const max = 5;
+                const current = this.currentPage;
+                let start = Math.max(1, current - Math.floor(max / 2));
+                let end = Math.min(total, start + max - 1);
+                start = Math.max(1, end - max + 1);
+
+                return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+            },
+
+            get canGoPrev() {
+                return this.currentPage > 1;
+            },
+
+            get canGoNext() {
+                return this.currentPage < this.totalPages;
+            },
+
+            goToPage(page) {
+                this.$store.meilisearch.goToPage(page);
+            },
+
+            prevPage() {
+                if (this.canGoPrev) {
+                    this.$store.meilisearch.prevPage();
+                }
+            },
+
+            nextPage() {
+                if (this.canGoNext) {
+                    this.$store.meilisearch.nextPage();
+                }
+            },
+        }
+    }
+</script>

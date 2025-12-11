@@ -1,0 +1,260 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\View\Element\Template;
+use Magento\Framework\Escaper;
+use Hyva\Theme\Model\ViewModelRegistry;
+use Walkwizus\MeilisearchFrontend\ViewModel\Ssr;
+
+/**
+ * @var Escaper $escaper
+ * @var Template $block
+ * @var ViewModelRegistry $viewModels
+ */
+$ssr = $viewModels->require(Ssr::class);
+$config = $ssr->getConfig();
+$searchResult = $ssr->getSearchResult();
+$totalHits = (int)($searchResult['totalHits'] ?? 0);
+$totalPages = (int)($searchResult['totalPages'] ?? 1);
+$facetDistribution = $searchResult['facetDistribution'] ?? [];
+$hits = $searchResult['hits'] ?? [];
+$viewMode = $ssr->getProductListMode();
+$viewIsGrid = $viewMode === 'grid';
+?>
+
+<?php if ($totalHits === 0): ?>
+    <div id="meilisearch-frontend-search">
+        <div class="message info empty">
+            <div><?= $escaper->escapeHtml(__("We can't find products matching the selection.")) ?></div>
+        </div>
+    </div>
+<?php else : ?>
+    <div id="meilisearch-frontend-search">
+        <section
+            class="py-8"
+            id="product-list"
+            aria-label="<?= $escaper->escapeHtmlAttr(__('Product list')) ?>"
+            tabindex="-1"
+            x-data
+            x-init="$store.meilisearch.init()"
+        >
+            <?= $block->getChildHtml('meilisearch.toolbar') ?>
+            <div
+                class="products wrapper mode-<?= /* @noEscape */$viewMode ?> products-<?= /* @noEscape */$viewMode ?>"
+                :class="$store.meilisearch.viewModeState.mode === 'list'
+                ? 'mode-list products-list'
+                : 'mode-grid products-grid'"
+            >
+                <?php
+                $gridClass = 'mx-auto pt-4 pb-12 grid gap-4 grid-cols-1 ' . ($viewIsGrid ? 'sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' : '');
+                ?>
+                <ul
+                    role="list"
+                    class="<?= $gridClass ?>"
+                    x-show="!$store.meilisearch.isHydrated"
+                >
+                    <?php foreach ($searchResult['hits'] as $hit): ?>
+                        <li class="flex flex-col">
+                            <div class="item product product-item card card-interactive grow flex flex-col w-full <?= $viewIsGrid ? '' : 'md:flex-row' ?>">
+                                <a href="<?= $escaper->escapeUrl($ssr->getProductUrl($hit['url_key'])) ?>"
+                                   title="<?= $escaper->escapeHtmlAttr($hit['name']) ?>"
+                                   class="product photo product-item-photo block mx-auto mb-3 <?= $viewIsGrid ? '' : 'md:w-2/6 md:mb-0 md:shrink-0' ?>"
+                                   tabindex="-1"
+                                >
+                                    <img
+                                        width="240"
+                                        height="300"
+                                        class="product-image-photo"
+                                        loading="lazy"
+                                        src="<?= $ssr->getProductImage($hit['image']) ?>"
+                                        alt=""
+                                    />
+                                </a>
+                                <div class="product-info flex flex-col grow <?= $viewIsGrid ? '' : 'md:pl-5 md:w-4/6' ?>">
+                                    <div class="mt-2 mb-1 items-center justify-center font-semibold text-lg text-center <?= $viewIsGrid ? '' : 'md:text-left' ?>">
+                                        <a
+                                            class="product-item-link"
+                                            href="<?= $escaper->escapeUrl($ssr->getProductUrl($hit['url_key'])) ?>"
+                                        >
+                                            <?= $escaper->escapeHtmlAttr($hit['name']) ?>
+                                        </a>
+                                    </div>
+                                    <?= $ssr->getProductPrice($hit[$config['priceAttributeCode']]) ?>
+                                </div>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <ul
+                    role="list"
+                    class="mx-auto pt-4 pb-12"
+                    x-cloak
+                    x-show="$store.meilisearch.isHydrated"
+                    :class="$store.meilisearch.viewModeState.mode === 'grid'
+                    ? 'grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'
+                    : 'grid gap-4 grid-cols-1'"
+                >
+                    <template x-for="hit in $store.meilisearch.state.hits" :key="hit.id">
+                        <li class="flex flex-col">
+                            <div
+                                class="item product product-item card card-interactive grow flex flex-col w-full"
+                                :class="$store.meilisearch.viewModeState.mode === 'list' ? 'md:flex-row' : ''"
+                            >
+                                <a
+                                    :href="$store.meilisearch.getProductUrl(hit.url_key)"
+                                    :title="hit.name"
+                                    class="product photo product-item-photo block mx-auto mb-3"
+                                    :class="$store.meilisearch.viewModeState.mode === 'list'
+                                    ? 'md:w-2/6 md:mb-0 md:shrink-0'
+                                    : ''"
+                                    tabindex="-1"
+                                >
+                                    <img
+                                        width="240"
+                                        height="300"
+                                        class="product-image-photo"
+                                        loading="lazy"
+                                        :src="$store.meilisearch.getProductImage(hit.image)"
+                                        :alt="hit.name"
+                                    />
+                                </a>
+                                <div
+                                    class="product-info flex flex-col grow"
+                                    :class="$store.meilisearch.viewModeState.mode === 'list'
+                                    ? 'md:pl-5 md:w-4/6'
+                                    : ''"
+                                >
+                                    <div
+                                        class="mt-2 mb-1 items-center justify-center font-semibold text-lg text-center"
+                                        :class="$store.meilisearch.viewModeState.mode === 'list'
+                                        ? 'md:text-left'
+                                        : ''"
+                                    >
+                                        <a
+                                            class="product-item-link"
+                                            :href="$store.meilisearch.getProductUrl(hit.url_key)"
+                                            x-text="hit.name"
+                                        ></a>
+                                    </div>
+                                    <template x-for="fragment in $store.meilisearch.meilisearchFragments" :key="fragment">
+                                        <div :data-fragment="fragment" :data-sku="hit.sku"></div>
+                                    </template>
+                                </div>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+            <?= $block->getChildBlock('meilisearch.toolbar')->setIsBottom(true)->toHtml() ?>
+        </section>
+    </div>
+<?php endif; ?>
+
+<script>
+    window.meilisearchInitialState = <?= /* @noEscape */ json_encode($searchResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script>
+    (function () {
+        function collectFragmentHosts() {
+            const hosts = Array.from(document.querySelectorAll('[data-fragment][data-sku]'));
+
+            if (!hosts.length) {
+                return {
+                    hosts: [],
+                    skus: [],
+                    fragments: []
+                };
+            }
+
+            const skusSet = new Set();
+            const fragsSet = new Set();
+
+            hosts.forEach((el) => {
+                const sku = el.getAttribute('data-sku');
+                const frag = el.getAttribute('data-fragment');
+
+                if (sku)  skusSet.add(sku);
+                if (frag) fragsSet.add(frag);
+            });
+
+            return {
+                hosts,
+                skus: Array.from(skusSet),
+                fragments: Array.from(fragsSet)
+            };
+        }
+
+        async function fetchAndInjectFragments() {
+            const { hosts, skus, fragments } = collectFragmentHosts();
+
+            if (!hosts.length || !skus.length) {
+                return;
+            }
+
+            const url = BASE_URL + 'meilisearch/ajax/fragment';
+            const body = new URLSearchParams({ form_key: hyva.getFormKey() });
+            const contentType = 'application/x-www-form-urlencoded; charset=UTF-8';
+
+            skus.forEach((sku) => body.append('skus[]', sku));
+            fragments.forEach((fragment) => body.append('fragments[]', fragment));
+
+            let json;
+            try {
+                const res = await fetch(url + '?form_key=' + hyva.getFormKey(), {
+                    method: 'POST',
+                    body,
+                    headers: { 'Content-Type': contentType }
+                });
+
+                if (!res.ok) {
+                    console.error('Fragment fetch failed with status', res.status);
+                    return;
+                }
+
+                json = await res.json();
+            } catch (e) {
+                console.error('Error fetching fragments', e);
+                return;
+            }
+
+            if (!json) {
+                return;
+            }
+
+            fragments.forEach((frag) => {
+                const bySku = json[frag] || {};
+
+                hosts
+                    .filter((el) => el.getAttribute('data-fragment') === frag)
+                    .forEach((el) => {
+                        const sku = el.getAttribute('data-sku');
+                        const html = bySku[sku] || '';
+
+                        if (!html) {
+                            return;
+                        }
+
+                        const temp = document.createElement('div');
+                        temp.innerHTML = html;
+
+                        hyva.activateScripts(temp);
+                        el.innerHTML = temp.innerHTML;
+                    });
+            });
+        }
+
+        let fragmentTimeout = null;
+
+        function scheduleFragmentsUpdate() {
+            if (fragmentTimeout) {
+                clearTimeout(fragmentTimeout);
+            }
+            fragmentTimeout = setTimeout(fetchAndInjectFragments, 50);
+        }
+
+        document.addEventListener('meilisearch:results-updated', () => {
+            scheduleFragmentsUpdate();
+        });
+    })();
+</script>

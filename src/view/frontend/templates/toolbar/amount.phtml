@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+
+/**
+ * @var Escaper $escaper
+ */
+?>
+<p
+    class="toolbar-amount text-sm leading-5 text-gray-700 order-3 sm:order-2 md:order-3
+        lg:order-2 col-span-2 gap-x-1"
+    id="toolbar-amount"
+>
+    <template x-if="totalPages > 1">
+        <span>
+            <?= $escaper->escapeHtml(__('Items')) ?>
+            <span class="toolbar-number" x-text="firstItem"></span>
+            -
+            <span class="toolbar-number" x-text="lastItem"></span>
+            <?= $escaper->escapeHtml(__('of')) ?>
+            <span class="toolbar-number" x-text="$store.meilisearch.state.totalHits"></span>
+        </span>
+    </template>
+    <template x-if="totalPages <= 1">
+        <span>
+            <template x-if="$store.meilisearch.state.totalHits === 1">
+                <span>
+                    <span class="toolbar-number">1</span>
+                    <?= $escaper->escapeHtml(__('Item')) ?>
+                </span>
+            </template>
+
+            <template x-if="$store.meilisearch.state.totalHits !== 1">
+                <span>
+                    <span class="toolbar-number" x-text="$store.meilisearch.state.totalHits"></span>
+                    <?= $escaper->escapeHtml(__('Items')) ?>
+                </span>
+            </template>
+        </span>
+    </template>
+</p>
