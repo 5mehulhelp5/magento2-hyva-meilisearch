@@ -1,6 +1,6 @@
 {
     "name": "walkwizus/magento2-hyva-meilisearch",
-    "description": "Meilisearch integration for Magento 2",
+    "description": "Meilisearch integration for Magento 2 Hyvä Compatibility module",
     "type": "magento2-module",
     "license": "OSL-3.0",
     "authors": [
@@ -9,6 +9,11 @@
             "email": "jimmy@walkwizus.fr"
         }
     ],
+    "require": {
+        "hyva-themes/magento2-compat-module-fallback": "*",
+        "hyva-themes/magento2-default-theme": "^1.3",
+        "walkwizus/magento2-module-meilisearch": ">=1.0.40"
+    },
     "autoload": {
         "files": [
             "src/registration.php"
