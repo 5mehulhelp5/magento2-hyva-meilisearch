@@ -7,6 +7,7 @@ use Magento\Framework\Escaper;
 use Hyva\Theme\Model\ViewModelRegistry;
 use Hyva\Theme\ViewModel\HeroiconsOutline;
 use Magento\Swatches\ViewModel\Product\Renderer\Configurable as ConfigurableViewModel;
+use Walkwizus\MeilisearchFrontend\ViewModel\Ssr;
 
 /** @var Template $block */
 /** @var Escaper $escaper */
@@ -16,6 +17,8 @@ use Magento\Swatches\ViewModel\Product\Renderer\Configurable as ConfigurableView
 $heroicons = $viewModels->require(HeroiconsOutline::class);
 /** @var ConfigurableViewModel $configurableViewModel */
 $configurableViewModel = $viewModels->require(ConfigurableViewModel::class);
+$ssr = $viewModels->require(Ssr::class);
+$facets = $ssr->getFacets();
 ?>
 
 <div
@@ -139,14 +142,45 @@ $configurableViewModel = $viewModels->require(ConfigurableViewModel::class);
                 </div>
             </div>
         </template>
+        <?php foreach ($facets as $facet) : ?>
+            <div
+                class="filter-option card my-4"
+                x-show="!$store.meilisearch || !$store.meilisearch.isHydrated"
+                x-cloak
+            >
+                <h3>
+                    <button
+                        type="button"
+                        class="filter-options-title flex justify-between items-center cursor-pointer text-start hover:text-secondary-darker border-container w-full"
+                        aria-expanded="false"
+                        aria-disabled="true"
+                        disabled
+                    >
+                        <span class="title text-md md:text-lg font-semibold">
+                            <?= $escaper->escapeHtml((string)($facet['label'] ?? $facet['code'] ?? '')) ?>
+                        </span>
+                        <span class="py-1 px-1 rounded border border-container">
+                            <?= $heroicons->chevronDownHtml(
+                                'transition-transform transform duration-300 ease-in-out',
+                                24,
+                                24,
+                                [
+                                    "aria-hidden" => "true",
+                                    "focusable" => "false"
+                                ]
+                            ); ?>
+                        </span>
+                    </button>
+                </h3>
+            </div>
+        <?php endforeach; ?>
         <template x-for="facet in $store.meilisearch.getAvailableFacets()" :key="facet.code">
             <div
-                x-data="{
-                    open: false,
-                    id: $id('filter-option')
-                }"
+                x-data="{ open: false, id: $id('filter-option') }"
                 x-defer="intersect"
                 class="filter-option card my-4"
+                x-show="$store.meilisearch && $store.meilisearch.isHydrated"
+                x-cloak
             >
                 <h3 :id="`${id}-title`">
                     <button
