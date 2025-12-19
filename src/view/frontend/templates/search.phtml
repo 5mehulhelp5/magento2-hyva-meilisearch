@@ -21,6 +21,9 @@ $facetDistribution = $searchResult['facetDistribution'] ?? [];
 $hits = $searchResult['hits'] ?? [];
 $viewMode = $ssr->getProductListMode();
 $viewIsGrid = $viewMode === 'grid';
+$imageCfg = $config['images']['category_page_' . $viewMode] ?? ['type' => 'small_image', 'width' => 240, 'height' => 300];
+$imageAttr = $imageCfg['type'] ?? 'small_image';
+$imagePath = $hit[$imageAttr] ?? ($hit['small_image'] ?? ($hit['image'] ?? ($hit['thumbnail'] ?? '')));
 ?>
 
 <?php if ($totalHits === 0): ?>
@@ -63,11 +66,11 @@ $viewIsGrid = $viewMode === 'grid';
                                    tabindex="-1"
                                 >
                                     <img
-                                        width="240"
-                                        height="300"
+                                        width="<?= (int)($imageCfg['width'] ?? 240) ?>"
+                                        height="<?= (int)($imageCfg['height'] ?? 300) ?>"
                                         class="product-image-photo"
                                         loading="lazy"
-                                        src="<?= $ssr->getProductImage($hit['image']) ?>"
+                                        src="<?= $escaper->escapeUrl($ssr->getProductImage($imagePath)) ?>"
                                         alt=""
                                     />
                                 </a>
@@ -111,11 +114,11 @@ $viewIsGrid = $viewMode === 'grid';
                                     tabindex="-1"
                                 >
                                     <img
-                                        width="240"
-                                        height="300"
                                         class="product-image-photo"
                                         loading="lazy"
-                                        :src="$store.meilisearch.getProductImage(hit.image)"
+                                        :width="$store.meilisearch.getListImageConfig().width"
+                                        :height="$store.meilisearch.getListImageConfig().height"
+                                        :src="$store.meilisearch.getHitImageUrl(hit)"
                                         :alt="hit.name"
                                     />
                                 </a>

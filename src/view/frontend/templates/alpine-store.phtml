@@ -410,8 +410,39 @@
                     return BASE_URL + 'catalogsearch/result/';
                 },
 
+                getListImageConfig() {
+                    const mode = (this.viewModeState.mode || (this.meilisearchConfig.defaultViewMode || 'grid')).toLowerCase();
+                    const key  = 'category_page_' + mode;
+
+                    return (this.meilisearchConfig.images && this.meilisearchConfig.images[key])
+                        ? this.meilisearchConfig.images[key]
+                        : { type: 'small_image', width: 240, height: 300 };
+                },
+
+                getHitImagePath(hit) {
+                    const cfg  = this.getListImageConfig();
+                    const type = cfg.type || 'small_image';
+
+                    const primary = hit && hit[type];
+
+                    const value = (primary && primary !== 'no_selection') ? primary
+                        : (hit && hit.small_image && hit.small_image !== 'no_selection') ? hit.small_image
+                            : (hit && hit.image && hit.image !== 'no_selection') ? hit.image
+                                : (hit && hit.thumbnail && hit.thumbnail !== 'no_selection') ? hit.thumbnail
+                                    : '';
+
+                    return value || '';
+                },
+
+                getHitImageUrl(hit) {
+                    const path = this.getHitImagePath(hit);
+                    return path ? this.getProductImage(path) : '';
+                },
+
                 getProductImage(image) {
-                    return this.meilisearchConfig.mediaBaseUrl + image;
+                    const base = (this.meilisearchConfig.mediaBaseUrl || '').replace(/\/+$/, '');
+                    const path = String(image || '').replace(/^\/+/, '');
+                    return path ? (base + '/' + path) : '';
                 },
 
                 getProductUrl(urlKey) {
