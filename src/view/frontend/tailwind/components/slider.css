@@ -1,0 +1,7 @@
+@layer components {
+    .range-input {
+        @apply absolute w-full h-2 appearance-none bg-transparent pointer-events-none cursor-pointer accent-blue-600;
+    }
+    .range-input::-webkit-slider-thumb { @apply pointer-events-auto relative z-30; }
+    .range-input::-moz-range-thumb { @apply pointer-events-auto relative z-30; }
+}

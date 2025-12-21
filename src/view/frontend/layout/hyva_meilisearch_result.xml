@@ -1,13 +1,20 @@
 <?xml version="1.0"?>
 
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <remove src="https://cdn.jsdelivr.net/npm/nouislider@15.7.0/dist/nouislider.min.css"/>
+    </head>
     <body>
         <referenceBlock name="meilisearch.frontend.search">
             <block class="Magento\Catalog\Block\Product\ProductList\Toolbar" name="meilisearch.toolbar" template="Hyva_WalkwizusMeilisearch::toolbar.phtml"/>
         </referenceBlock>
         <referenceBlock name="meilisearch.frontend.layers">
-            <block name="meilisearch.frontend.layers.swatch" template="Hyva_WalkwizusMeilisearch::layers/swatch.phtml"/>
-            <block name="meilisearch.frontend.layers.checkbox" template="Hyva_WalkwizusMeilisearch::layers/checkbox.phtml"/>
+            <block name="meilisearch.frontend.layers.active" template="Hyva_WalkwizusMeilisearch::layers/active.phtml"/>
+            <block name="meilisearch.frontend.layers.type.swatch" template="Hyva_WalkwizusMeilisearch::layers/type/swatch.phtml"/>
+            <block name="meilisearch.frontend.layers.type.checkbox" template="Hyva_WalkwizusMeilisearch::layers/type/checkbox.phtml"/>
+            <block name="meilisearch.frontend.layers.type.slider" template="Hyva_WalkwizusMeilisearch::layers/type/slider.phtml"/>
+            <block name="meilisearch.frontend.layers.js.layers" template="Hyva_WalkwizusMeilisearch::layers/js/layers.phtml"/>
+            <block name="meilisearch.frontend.layers.js.slider" template="Hyva_WalkwizusMeilisearch::layers/js/slider.phtml"/>
         </referenceBlock>
     </body>
 </page>

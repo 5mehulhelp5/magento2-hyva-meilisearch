@@ -1,0 +1,156 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+
+/**
+ * @var Escaper $escaper
+ */
+?>
+
+<script>
+    function initMeilisearchLayeredSwatch() {
+        return {
+            activeTooltipItem: false,
+            tooltipPositionElement: false,
+
+            getSwatchType(typeNumber) {
+                switch ("" + typeNumber) {
+                    case '1':
+                        return "color";
+                    case '2':
+                        return "image";
+                    case '0':
+                    default:
+                        return "text";
+                }
+            },
+
+            getSwatchBackgroundStyle(type, value, image) {
+                if (this.getSwatchType(type) === "color") {
+                    return 'background-color:' + value;
+                } else if (this.getSwatchType(type) === "image") {
+                    return "background: #ffffff url('" + image + "') no-repeat center";
+                } else {
+                    return '';
+                }
+            },
+
+            isTooltipVisible() {
+                return this.activeTooltipItem;
+            },
+
+            isFirstItemCol() {
+                const left = this.tooltipPositionElement.offsetLeft;
+                const leftParent = this.tooltipPositionElement.parentNode.offsetLeft;
+                const width = this.tooltipPositionElement.offsetWidth;
+                return left - leftParent < width;
+            },
+
+            getTooltipImageStyle() {
+                const type = this.activeTooltipItem.type;
+
+                if (this.getSwatchType(type) === "color") {
+                    return 'background-color:' + this.activeTooltipItem.value + '; width: 110px; height: 90px;';
+                } else if (this.getSwatchType(type) === "image") {
+                    return "background: #ffffff url('" + this.activeTooltipItem.thumb +
+                        "') center center no-repeat; width: 110px; height: 90px;";
+                } else {
+                    return 'display:none';
+                }
+            },
+
+            getTooltipPosition() {
+                return this.tooltipPositionElement
+                    ? (
+                        `top: ${this.tooltipPositionElement.offsetTop}px;` +
+                        `left: ${this.tooltipPositionElement.offsetLeft}px;`
+                    )
+                    : '';
+            },
+
+            getTooltipLabel() {
+                return this.activeTooltipItem.label || '';
+            },
+
+            isVisualSwatch() {
+                return this.getSwatchType(this.activeTooltipItem.type) !== 'text';
+            }
+        }
+    }
+
+    function meilisearchLayeredNavigation() {
+        return {
+            isMobile: false,
+            blockOpen: true,
+
+            get hasActiveFilters() {
+                const selected = this.$store.meilisearch.state.selectedFacets || {};
+                return Object.keys(selected).some(code => (selected[code] || []).length > 0);
+            },
+
+            get activeFilters() {
+                const selected = this.$store.meilisearch.state.selectedFacets || {};
+                const result = [];
+
+                Object.entries(selected).forEach(([facetCode, values]) => {
+                    (values || []).forEach((value) => {
+                        result.push({ facetCode, value });
+                    });
+                });
+
+                return result;
+            },
+
+            getFacetLabel(code) {
+                const facets = this.$store.meilisearch.getAvailableFacets
+                    ? this.$store.meilisearch.getAvailableFacets()
+                    : [];
+                const facet = facets.find((f) => f.code === code);
+                return facet ? facet.label : code;
+            },
+
+            getFacetOptionLabel(code, value) {
+                if (typeof value === 'string' && value.includes('_')) {
+                    const [min, max] = value.split('_');
+
+                    const format = (v) => {
+                        return hyva.formatPrice(
+                            v,
+                            false,
+                            this.$store.meilisearch.meilisearchConfig.priceFormat
+                        );
+                    };
+
+                    return `${format(min)} - ${format(max)}`;
+                }
+
+                const facets = this.$store.meilisearch.getAvailableFacets ? this.$store.meilisearch.getAvailableFacets() : [];
+                const facet = facets.find((f) => f.code === code);
+                if (!facet) return value;
+
+                const option = facet.options.find((o) => String(o.value) === String(value));
+                return option ? option.label : value;
+            },
+
+            removeFilterTitle(activeFilter) {
+                const facetLabel = this.getFacetLabel(activeFilter.facetCode);
+                const optionLabel = this.getFacetOptionLabel(activeFilter.facetCode, activeFilter.value);
+
+                return '<?= $escaper->escapeJs(__('Remove active %1 filter: %2')) ?>'
+                    .replace('%1', facetLabel)
+                    .replace('%2', optionLabel);
+            },
+
+            checkIsMobileResolution() {
+                const mobileElement = this.$refs.LayeredNavigationMobileToggleIcon;
+                this.isMobile = mobileElement
+                    ? getComputedStyle(mobileElement).display !== "none"
+                    : window.matchMedia('(max-width: 767px)').matches;
+
+                this.blockOpen = !this.isMobile;
+            }
+        }
+    }
+</script>

@@ -1,0 +1,68 @@
+<script>
+    function msPriceSlider(facet) {
+        return {
+            facet,
+            min: 0,
+            max: 0,
+            minLimit: 0,
+            maxLimit: 100,
+
+            get store() { return Alpine.store('meilisearch'); },
+
+            init() {
+                this.refresh();
+                window.addEventListener('meilisearch:results-updated', () => this.refresh());
+            },
+
+            format(value) {
+                return hyva.formatPrice(
+                    value,
+                    false,
+                    this.store.meilisearchConfig.priceFormat
+                );
+            },
+
+            get totalCount() {
+                const dist = this.store.state.facetDistribution?.[this.facet.code];
+                if (!dist) return 0;
+
+                return Object.entries(dist).reduce((sum, [price, count]) => {
+                    const p = parseFloat(price);
+                    if (p >= this.min && p <= this.max) {
+                        return sum + count;
+                    }
+                    return sum;
+                }, 0);
+            },
+
+            refresh() {
+                const stats = this.store.state.facetStats?.[this.facet.code] || {};
+
+                this.minLimit = Math.floor(stats.min ?? 0);
+                this.maxLimit = Math.ceil(stats.max ?? 100);
+                if (this.minLimit === this.maxLimit) this.maxLimit++;
+
+                const selected = this.store.state.selectedFacets?.[this.facet.code]?.[0];
+                const [urlMin, urlMax] = selected ? selected.split('_').map(Number) : [];
+
+                this.min = urlMin ?? this.minLimit;
+                this.max = urlMax ?? this.maxLimit;
+            },
+
+            apply() {
+                const state = this.store.state;
+                const isDefault = this.min === this.minLimit && this.max === this.maxLimit;
+
+                if (isDefault) {
+                    delete state.selectedFacets[this.facet.code];
+                } else {
+                    state.selectedFacets[this.facet.code] = [`${this.min}_${this.max}`];
+                }
+
+                state.page = 1;
+                this.store.syncUrl();
+                this.store.performSearch();
+            }
+        }
+    }
+</script>

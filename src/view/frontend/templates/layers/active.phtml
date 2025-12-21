@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+
+/**
+ * @var Escaper $escaper
+ * @var ViewModelRegistry $viewModels
+ */
+
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+?>
+
+<template x-if="hasActiveFilters">
+    <div
+        x-data="{ open: true }"
+        class="filter-current bg-white border border-gray-300 p-4 md:px-8 md:mt-4 mb-4"
+    >
+        <h3 id="active-filtering-heading">
+            <button
+                type="button"
+                @click="open = !open"
+                class="w-full filter-options-title flex justify-between items-center text-start cursor-pointer"
+                aria-controls="active-filtering-content"
+                :aria-expanded="open"
+                x-init="$nextTick(() => $el.focus())"
+            >
+                <strong><?= $escaper->escapeHtml(__('Active filtering')) ?></strong>
+                <span class="py-1 px-1 rounded border border-gray-300">
+                            <?= $heroicons->chevronDownHtml(
+                                'transition-transform transform duration-300 ease-in-out',
+                                24,
+                                24,
+                                [
+                                    ":class" => "{ 'rotate-180': open }",
+                                    "aria-hidden" => "true",
+                                    "focusable" => "false"
+                                ]
+                            ); ?>
+                        </span>
+            </button>
+        </h3>
+        <div
+            id="active-filtering-content"
+            class="items pt-1 pb-3 space-y-1"
+            x-show="open"
+            aria-labelledby="active-filtering-heading"
+            role="region"
+        >
+            <template
+                x-for="activeFilter in activeFilters"
+                :key="activeFilter.facetCode + '-' + activeFilter.value"
+            >
+                <div class="item flex justify-between items-center">
+                            <span>
+                                <span
+                                    class="filter-label block text-sm font-medium"
+                                    x-text="getFacetLabel(activeFilter.facetCode)"
+                                ></span>
+                                <span
+                                    class="filter-value text-sm block"
+                                    x-text="getFacetOptionLabel(activeFilter.facetCode, activeFilter.value)"
+                                ></span>
+                            </span>
+                    <button
+                        type="button"
+                        class="py-2 px-2 text-center block action remove text-fg-secondary hover:text-fg"
+                        @click="$store.meilisearch.toggleFacet(activeFilter.facetCode, activeFilter.value)"
+                        :title="removeFilterTitle(activeFilter)"
+                        :aria-label="removeFilterTitle(activeFilter)"
+                    >
+                        <?= $heroicons->trashHtml('', 20, 20, ["aria-hidden" => "true"]); ?>
+                    </button>
+                </div>
+            </template>
+        </div>
+        <div
+            class="block-actions filter-actions"
+            x-show="open"
+        >
+            <button
+                type="button"
+                class="text-sm text-fg-secondary hover:text-fg"
+                @click="$store.meilisearch.clearAllFacets()"
+            >
+                <?= $escaper->escapeHtml(__('Clear All')) ?>
+            </button>
+        </div>
+    </div>
+</template>
