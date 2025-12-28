@@ -449,9 +449,16 @@
                 },
 
                 getProductImage(image) {
+                    const cfg = this.getListImageConfig();
                     const base = (this.meilisearchConfig.mediaBaseUrl || '').replace(/\/+$/, '');
                     const path = String(image || '').replace(/^\/+/, '');
-                    return path ? (base + '/' + path) : '';
+                    if (!path) return '';
+
+                    const hash = cfg && cfg.hash;
+
+                    return hash
+                        ? `${base}/cache/${hash}/${path}`
+                        : `${base}/${path}`;
                 },
 
                 getProductUrl(urlKey) {
