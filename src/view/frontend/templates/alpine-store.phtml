@@ -243,11 +243,60 @@
                 },
 
                 getAvailableFacets() {
-                    if (!this.isHydrated) {
+                    if (!this.isHydrated || !this.state.results) {
                         return [];
                     }
 
-                    return this.meilisearchFacets.getAvailableFacets(this.state.results);
+                    const facetDistribution = this.state.facetDistribution || {};
+                    const facetConfig = this.meilisearchConfig.facets.facetConfig || {};
+                    const facetList = this.meilisearchConfig.facets.facetList || [];
+
+                    return facetList
+                        .filter(code => {
+                            const values = facetDistribution[code];
+                            const cfg = facetConfig[code];
+                            if (!values || !cfg) return false;
+
+                            return Object.keys(values).length > 0;
+                        })
+                        .map(code => {
+                            const cfg = facetConfig[code];
+                            const values = facetDistribution[code] || {};
+
+                            let optionsData = Object.entries(values).map(([val, count]) => {
+                                if (cfg.hasOptions && cfg.options?.[val]) {
+                                    return { ...cfg.options[val], value: val, count };
+                                }
+                                return { value: val, label: val, count };
+                            });
+
+                            const sortedOptions = this.sortFacetOptions([...optionsData], cfg.sortValuesBy);
+
+                            return {
+                                ...cfg,
+                                code: code,
+                                options: sortedOptions,
+                                visibleOptions: (cfg.showMore && !this.state.selectedFacets[code])
+                                    ? sortedOptions.slice(0, cfg.showMoreLimit)
+                                    : sortedOptions
+                            };
+                        });
+                },
+
+                sortFacetOptions(options, sortType) {
+                    if (sortType === 'alpha') {
+                        return options.sort((a, b) => {
+                            const labelA = a.label || a.value || '';
+                            const labelB = b.label || b.value || '';
+                            return labelA.localeCompare(labelB);
+                        });
+                    }
+
+                    if (sortType === 'count') {
+                        return options.sort((a, b) => b.count - a.count);
+                    }
+
+                    return options;
                 },
 
                 toggleFacet(code, value) {
