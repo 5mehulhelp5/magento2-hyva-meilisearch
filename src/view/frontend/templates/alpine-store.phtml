@@ -247,40 +247,21 @@
                         return [];
                     }
 
-                    const facetDistribution = this.state.facetDistribution || {};
-                    const facetConfig = this.meilisearchConfig.facets.facetConfig || {};
-                    const facetList = this.meilisearchConfig.facets.facetList || [];
+                    const facets = this.meilisearchFacets.getAvailableFacets(
+                        this.state.results,
+                        this.meilisearchConfig
+                    );
 
-                    return facetList
-                        .filter(code => {
-                            const values = facetDistribution[code];
-                            const cfg = facetConfig[code];
-                            if (!values || !cfg) return false;
-
-                            return Object.keys(values).length > 0;
-                        })
-                        .map(code => {
-                            const cfg = facetConfig[code];
-                            const values = facetDistribution[code] || {};
-
-                            let optionsData = Object.entries(values).map(([val, count]) => {
-                                if (cfg.hasOptions && cfg.options?.[val]) {
-                                    return { ...cfg.options[val], value: val, count };
-                                }
-                                return { value: val, label: val, count };
-                            });
-
-                            const sortedOptions = this.sortFacetOptions([...optionsData], cfg.sortValuesBy);
-
-                            return {
-                                ...cfg,
-                                code: code,
-                                options: sortedOptions,
-                                visibleOptions: (cfg.showMore && !this.state.selectedFacets[code])
-                                    ? sortedOptions.slice(0, cfg.showMoreLimit)
-                                    : sortedOptions
-                            };
-                        });
+                    return facets.map(facet => {
+                        const sortedOptions = this.sortFacetOptions([...facet.options], facet.sortValuesBy);
+                        return {
+                            ...facet,
+                            options: sortedOptions,
+                            visibleOptions: (facet.showMore && !this.state.selectedFacets[facet.code])
+                                ? sortedOptions.slice(0, facet.showMoreLimit)
+                                : sortedOptions
+                        };
+                    });
                 },
 
                 sortFacetOptions(options, sortType) {
